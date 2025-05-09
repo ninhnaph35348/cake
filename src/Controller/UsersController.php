@@ -55,23 +55,25 @@ class UsersController extends AppController
         $result = $this->Authentication->getResult();
 
         if (!$result->isValid()) {
-            throw new UnauthorizedException('Sai thông tin đăng nhập.');
+            return $this->response->withStatus(401)->withType('application/json')
+                ->withStringBody(json_encode(['message' => 'Sai thông tin đăng nhập']));
         }
 
+        /** @var \App\Model\Entity\User $user */
         $user = $result->getData();
 
-        $key = 's3cr3t_key_rem_xinh_gai';
+        $key = 'concacon'; // giống trong config JWT
         $payload = [
             'sub' => $user->id,
-            'email' => $user->email,
-            'exp' => time() + 3600, // 1 giờ
+            'exp' => time() + 604800, // 7 ngày
         ];
 
         $jwt = JWT::encode($payload, $key, 'HS256');
 
-        $this->set([
-            'token' => $jwt,
-            '_serialize' => ['token'],
-        ]);
+        return $this->response->withType('application/json')
+            ->withStringBody(json_encode([
+                'token' => $jwt,
+                'user' => ['id' => $user->id, 'email' => $user->email],
+            ]));
     }
 }

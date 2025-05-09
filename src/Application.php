@@ -48,9 +48,9 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             ]))
             ->add(new RoutingMiddleware($this))
             ->add(new BodyParserMiddleware())
-            ->add(new CsrfProtectionMiddleware([
-                'httponly' => true,
-            ]))
+            // ->add(new CsrfProtectionMiddleware([
+            //     'httponly' => true,
+            // ]))
             // ✨ Middleware xác thực
             ->add(new AuthenticationMiddleware($this));
 
@@ -63,8 +63,8 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
     public function getAuthenticationService(ServerRequestInterface $request): AuthenticationServiceInterface
     {
         $service = new AuthenticationService([
-            'unauthenticatedRedirect' => '/users/login', // Trang chuyển hướng
-            'queryParam' => 'redirect', // Tên query để chuyển tiếp lại sau khi đăng nhập
+            'unauthenticatedRedirect' => '/users/login',
+            'queryParam' => 'redirect',
         ]);
 
         $fields = [
@@ -72,20 +72,40 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             'password' => 'password',
         ];
 
-        // Load identifier và authenticator
-        $service->loadIdentifier('Authentication.Password', compact('fields'));
-        $service->loadAuthenticator('Authentication.Session');
-        $service->loadAuthenticator('Authentication.Form', [
+        // ⚠️ Identifier dùng cho login với mật khẩu
+        $service->loadIdentifier('Authentication.Password', [
             'fields' => $fields,
-            'loginUrl' => '/users/login',
+            'resolver' => [
+                'className' => 'Authentication.Orm',
+                'userModel' => 'Users',
+            ],
         ]);
 
+        // ⚠️ Identifier dùng để lấy user từ JWT (sử dụng field `sub`)
+        $service->loadIdentifier('Authentication.JwtSubject', [
+            'tokenField' => 'sub',
+            'dataField' => 'sub',
+            'resolver' => [
+                'className' => 'Authentication.Orm',
+                'userModel' => 'Users',
+            ],
+        ]);
+
+        // Ưu tiên: JWT -> Session -> Form
         $service->loadAuthenticator('Authentication.Jwt', [
             'secretKey' => 'concacon',
             'algorithm' => 'HS256',
             'header' => 'Authorization',
             'tokenPrefix' => 'Bearer',
         ]);
+
+        $service->loadAuthenticator('Authentication.Session');
+
+        $service->loadAuthenticator('Authentication.Form', [
+            'fields' => $fields,
+            'loginUrl' => '/users/login',
+        ]);
+
         return $service;
     }
 
