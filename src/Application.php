@@ -80,6 +80,12 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             'loginUrl' => '/users/login',
         ]);
 
+        $service->loadAuthenticator('Authentication.Jwt', [
+            'secretKey' => 'concacon',
+            'algorithm' => 'HS256',
+            'header' => 'Authorization',
+            'tokenPrefix' => 'Bearer',
+        ]);
         return $service;
     }
 

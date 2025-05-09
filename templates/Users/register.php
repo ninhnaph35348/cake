@@ -7,6 +7,7 @@
         <?= $this->Form->control('email', [
             'label' => 'Email',
             'class' => 'form-control',
+            'placeholder' => 'Nhập email của bạn',
             'required' => true
         ]) ?>
     </div>
@@ -16,6 +17,7 @@
             'label' => 'Mật khẩu',
             'type' => 'password',
             'class' => 'form-control',
+            'placeholder' => 'Nhập mật khẩu',
             'required' => true
         ]) ?>
     </div>
@@ -26,7 +28,7 @@
 
     <?= $this->Form->end() ?>
 
-    <div class="mt-3 text-center">
-        <?= $this->Html->link('Đã có tài khoản? Đăng nhập', ['controller' => 'Users', 'action' => 'login']) ?>
+    <div class="mt-2 text-center">
+       Đã có tài khoản? <?= $this->Html->link('Đăng nhập', ['controller' => 'Users', 'action' => 'login']) ?>
     </div>
 </div>

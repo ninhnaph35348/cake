@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use Cake\Http\Exception\UnauthorizedException;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+
 /**
  * Users Controller
  *
@@ -43,5 +47,31 @@ class UsersController extends AppController
             $this->Flash->error('Không thể đăng ký.');
         }
         $this->set(compact('user'));
+    }
+
+    public function apiLogin()
+    {
+        $this->request->allowMethod(['post']);
+        $result = $this->Authentication->getResult();
+
+        if (!$result->isValid()) {
+            throw new UnauthorizedException('Sai thông tin đăng nhập.');
+        }
+
+        $user = $result->getData();
+
+        $key = 's3cr3t_key_rem_xinh_gai';
+        $payload = [
+            'sub' => $user->id,
+            'email' => $user->email,
+            'exp' => time() + 3600, // 1 giờ
+        ];
+
+        $jwt = JWT::encode($payload, $key, 'HS256');
+
+        $this->set([
+            'token' => $jwt,
+            '_serialize' => ['token'],
+        ]);
     }
 }
