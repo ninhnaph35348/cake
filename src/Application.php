@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App;
 
+use App\Middleware\JwtMiddleware;
 use Authentication\Identifier\IdentifierInterface;
 use Authentication\AuthenticationServiceInterface;
 use Authentication\AuthenticationServiceProviderInterface;
@@ -51,9 +52,10 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             // ->add(new CsrfProtectionMiddleware([
             //     'httponly' => true,
             // ]))
+            // ✨ Middleware JWT
+            ->add(new JwtMiddleware())
             // ✨ Middleware xác thực
             ->add(new AuthenticationMiddleware($this));
-
         return $middlewareQueue;
     }
 
@@ -81,7 +83,7 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             ],
         ]);
 
-        // ⚠️ Identifier dùng để lấy user từ JWT (sử dụng field `sub`)
+        // ⚠️ Identifier dùng để lấy user từ JWT (sử dụng field `sub` từ token)
         $service->loadIdentifier('Authentication.JwtSubject', [
             'tokenField' => 'sub',
             'dataField' => 'sub',
@@ -91,23 +93,19 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             ],
         ]);
 
-        // Ưu tiên: JWT -> Session -> Form
-        $service->loadAuthenticator('Authentication.Jwt', [
-            'secretKey' => 'concacon',
-            'algorithm' => 'HS256',
-            'header' => 'Authorization',
-            'tokenPrefix' => 'Bearer',
-        ]);
-
-        $service->loadAuthenticator('Authentication.Session');
-
+        // ⚠️ Authenticator cho đăng nhập bằng Form (Username + Password)
         $service->loadAuthenticator('Authentication.Form', [
             'fields' => $fields,
-            'loginUrl' => '/users/login',
+            'loginUrl' => '/users/login', // Hoặc cho api-login
         ]);
 
+        // Authenticator cho Session (thường dùng sau khi đăng nhập thành công)
+        $service->loadAuthenticator('Authentication.Session');
+
+        // Đảm bảo rằng phần này không cần Middleware thêm nữa
         return $service;
     }
+
 
     public function services(ContainerInterface $container): void {}
 }

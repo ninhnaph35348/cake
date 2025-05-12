@@ -1,116 +1,170 @@
 <?php
 
-declare(strict_types=1);
+namespace App\Controller\Api;
 
-namespace App\Controller;
+use App\Controller\AppController;
+use Cake\Core\Configure;
+use Cake\Datasource\Exception\RecordNotFoundException;
+use Cake\Http\Exception\MethodNotAllowedException;
 
-/**
- * Articles Controller
- *
- * @property \App\Model\Table\ArticlesTable $Articles
- */
 class ArticlesController extends AppController
 {
-    /**
-     * Index method
-     *
-     * @return \Cake\Http\Response|null|void Renders view
-     */
+    public function beforeFilter(\Cake\Event\EventInterface $event)
+    {
+        parent::beforeFilter($event);
+        $this->viewBuilder()->setClassName('Json');
+        if ($this->request->is('ajax') || $this->request->is('json')) {
+            Configure::write('DebugKit.forceEnable', false);
+        }
+        $this->autoRender = false;
+    }
+
     public function index()
     {
+        try {
+            $articles = $this->Articles->find('all')->toArray();
+            $formattedArticles = array_map(function ($article) {
+                return [
+                    'id' => $article->id,
+                    'user_id' => $article->user_id,
+                    'title' => $article->title,
+                    'body' => $article->body,
+                    'published' => $article->published,
+                    'created' => $article->created->format('Y-m-d H:i:s'),
+                    'modified' => $article->modified->format('Y-m-d H:i:s'),
+                ];
+            }, $articles);
 
-        $articles = $this->paginate($this->Articles);
-
-        $this->set(compact('articles'));
+            $this->set([
+                'status' => 'success',
+                'data' => $formattedArticles,
+            ]);
+        } catch (\Exception $e) {
+            $this->response = $this->response->withStatus(500);
+            $this->set([
+                'status' => 'error',
+                'message' => 'Lỗi khi lấy danh sách bài viết: ' . $e->getMessage(),
+            ]);
+        }
+        $this->viewBuilder()->setOption('serialize', ['status', 'data', 'message']);
     }
 
-    /**
-     * View method
-     *
-     * @param string|null $id Article id.
-     * @return \Cake\Http\Response|null|void Renders view
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     */
     public function view($id = null)
     {
-        $article = $this->Articles->get($id);
-
-        if (!$article) {
-            $this->Flash->error('Không tìm thấy bài viết này.');
-            return $this->redirect(['action' => 'index']);
+        try {
+            $article = $this->Articles->get($id);
+            $this->set([
+                'status' => 'success',
+                'data' => [
+                    'id' => $article->id,
+                    'user_id' => $article->user_id,
+                    'title' => $article->title,
+                    'body' => $article->body,
+                    'published' => $article->published,
+                    'created' => $article->created->format('Y-m-d H:i:s'),
+                    'modified' => $article->modified->format('Y-m-d H:i:s'),
+                ],
+            ]);
+        } catch (RecordNotFoundException $e) {
+            $this->response = $this->response->withStatus(404);
+            $this->set([
+                'status' => 'error',
+                'message' => 'Không tìm thấy bài viết.',
+            ]);
         }
-
-        $this->set(compact('article'));
+        $this->viewBuilder()->setOption('serialize', ['status', 'data', 'message']);
     }
 
-    /**
-     * Add method
-     *
-     * @return \Cake\Http\Response|null|void Redirects on successful add, renders view otherwise.
-     */
     public function add()
     {
         if ($this->request->is('post')) {
             $data = $this->request->getData();
-            $data['user_id'] = 1;
-
+            $data['user_id'] = 1; // Thay bằng logic xác thực user
             $article = $this->Articles->newEntity($data);
 
-
             if ($this->Articles->save($article)) {
-                $this->Flash->success('Bài viết của bạn đã được lưu.');
-                return $this->redirect(['action' => 'index']);
+                $this->set([
+                    'status' => 'success',
+                    'data' => [
+                        'id' => $article->id,
+                        'title' => $article->title,
+                    ],
+                    'message' => 'Bài viết đã được lưu.',
+                ]);
+            } else {
+                $this->response = $this->response->withStatus(400);
+                $this->set([
+                    'status' => 'error',
+                    'message' => 'Không thể thêm bài viết.',
+                    'errors' => $article->getErrors(),
+                ]);
             }
-            $this->Flash->error('Không thể thêm bài viết của bạn.');
-        }
-
-        $this->set('article', $article ?? $this->Articles->newEmptyEntity());
-    }
-
-    /**
-     * Edit method
-     *
-     * @param string|null $id Article id.
-     * @return \Cake\Http\Response|null|void Redirects on successful edit, renders view otherwise.
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     */
-    public function edit(string $id): \Cake\Http\Response|null
-    {
-        $article = $this->Articles->get($id);
-
-        if ($this->request->is(['patch', 'post', 'put'])) {
-            $article = $this->Articles->patchEntity($article, $this->request->getData());
-
-            if ($this->Articles->save($article)) {
-                $this->Flash->success('Bài viết của bạn đã được cập nhật.');
-                return $this->redirect(['action' => 'index']);
-            }
-
-            $this->Flash->error('Không thể cập nhật bài viết.');
-        }
-
-        $this->set(compact('article'));
-        return null;
-    }
-
-    /**
-     * Delete method
-     *
-     * @param string|null $id Article id.
-     * @return \Cake\Http\Response|null Redirects to index.
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     */
-    public function delete(string $id)
-    {
-        $this->request->allowMethod(['post', 'delete']);
-
-        $article = $this->Articles->get($id);
-        if ($this->Articles->delete($article)) {
-            $this->Flash->success(__('Bài viết đã được xóa.'));
         } else {
-            $this->Flash->error(__('Không thể xóa bài viết. Vui lòng thử lại.'));
+            throw new MethodNotAllowedException();
         }
+        $this->viewBuilder()->setOption('serialize', ['status', 'data', 'message', 'errors']);
+    }
 
-        return $this->redirect(['action' => 'index']);
+    public function edit($id = null)
+    {
+        try {
+            $article = $this->Articles->get($id);
+            if ($this->request->is(['put', 'patch'])) {
+                $article = $this->Articles->patchEntity($article, $this->request->getData());
+                if ($this->Articles->save($article)) {
+                    $this->set([
+                        'status' => 'success',
+                        'data' => [
+                            'id' => $article->id,
+                            'title' => $article->title,
+                        ],
+                        'message' => 'Bài viết đã được cập nhật.',
+                    ]);
+                } else {
+                    $this->response = $this->response->withStatus(400);
+                    $this->set([
+                        'status' => 'error',
+                        'message' => 'Không thể cập nhật bài viết.',
+                        'errors' => $article->getErrors(),
+                    ]);
+                }
+            } else {
+                throw new MethodNotAllowedException();
+            }
+        } catch (RecordNotFoundException $e) {
+            $this->response = $this->response->withStatus(404);
+            $this->set([
+                'status' => 'error',
+                'message' => 'Không tìm thấy bài viết.',
+            ]);
+        }
+        $this->viewBuilder()->setOption('serialize', ['status', 'data', 'message', 'errors']);
+    }
+
+    public function delete($id = null)
+    {
+        try {
+            $this->request->allowMethod(['delete']);
+            $article = $this->Articles->get($id);
+            if ($this->Articles->delete($article)) {
+                $this->set([
+                    'status' => 'success',
+                    'message' => 'Bài viết đã được xóa.',
+                ]);
+            } else {
+                $this->response = $this->response->withStatus(400);
+                $this->set([
+                    'status' => 'error',
+                    'message' => 'Không thể xóa bài viết.',
+                ]);
+            }
+        } catch (RecordNotFoundException $e) {
+            $this->response = $this->response->withStatus(404);
+            $this->set([
+                'status' => 'error',
+                'message' => 'Không tìm thấy bài viết.',
+            ]);
+        }
+        $this->viewBuilder()->setOption('serialize', ['status', 'message']);
     }
 }
